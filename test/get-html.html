@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Drive API Quickstart</title>
+    <meta charset="utf-8" />
+  </head>
+  <body>
+    <p>Drive API Quickstart</p>
+
+    <!-- Add buttons to initiate auth sequence and sign out -->
+    <button id="authorize_button" onclick="handleAuthClick()">Authorize</button>
+    <button id="signout_button" onclick="handleSignoutClick()">Sign Out</button>
+    <button id="download_button" onclick="downloadAsHTML()">
+      Download as HTML
+    </button>
+
+    <div id="content"></div>
+
+    <script type="text/javascript">
+      /* exported gapiLoaded */
+      /* exported gisLoaded */
+      /* exported handleAuthClick */
+      /* exported handleSignoutClick */
+
+      // TODO(developer): Set to client ID and API key from the Developer Console
+      const CLIENT_ID =
+        "719564120491-ma663m91mup483ol6msd472je5kfskjm.apps.googleusercontent.com";
+      const API_KEY = "AIzaSyAUbC5H_bt1x-U58dG9nZ751q-mVB3j3RA";
+
+      // Discovery doc URL for APIs used by the quickstart
+      const DISCOVERY_DOC =
+        "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest";
+
+      // Authorization scopes required by the API; multiple scopes can be
+      // included, separated by spaces.
+      const SCOPES = "https://www.googleapis.com/auth/drive.readonly";
+
+      let tokenClient;
+      let gapiInited = false;
+      let gisInited = false;
+
+      document.getElementById("authorize_button").style.visibility = "hidden";
+      document.getElementById("signout_button").style.visibility = "hidden";
+      document.getElementById("download_button").style.visibility = "hidden";
+
+      /**
+       * Callback after api.js is loaded.
+       */
+      function gapiLoaded() {
+        gapi.load("client", initializeGapiClient);
+      }
+
+      /**
+       * Callback after the API client is loaded. Loads the
+       * discovery doc to initialize the API.
+       */
+      async function initializeGapiClient() {
+        await gapi.client.init({
+          apiKey: API_KEY,
+          discoveryDocs: [DISCOVERY_DOC],
+        });
+        gapiInited = true;
+        maybeEnableButtons();
+      }
+
+      /**
+       * Callback after Google Identity Services are loaded.
+       */
+      function gisLoaded() {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES,
+          callback: "", // defined later
+        });
+        gisInited = true;
+        maybeEnableButtons();
+      }
+
+      /**
+       * Enables user interaction after all libraries are loaded.
+       */
+      function maybeEnableButtons() {
+        if (gapiInited && gisInited) {
+          document.getElementById("authorize_button").style.visibility =
+            "visible";
+        }
+      }
+
+      /**
+       *  Sign in the user upon button click.
+       */
+      function handleAuthClick() {
+        tokenClient.callback = async (resp) => {
+          if (resp.error !== undefined) {
+            throw resp;
+          }
+          document.getElementById("signout_button").style.visibility =
+            "visible";
+          document.getElementById("download_button").style.visibility =
+            "visible";
+          document.getElementById("authorize_button").innerText = "Refresh";
+          await listFiles();
+        };
+
+        if (gapi.client.getToken() === null) {
+          // Prompt the user to select a Google Account and ask for consent to share their data
+          // when establishing a new session.
+          tokenClient.requestAccessToken({ prompt: "consent" });
+        } else {
+          // Skip display of account chooser and consent dialog for an existing session.
+          tokenClient.requestAccessToken({ prompt: "" });
+        }
+      }
+
+      /**
+       *  Sign out the user upon button click.
+       */
+      function handleSignoutClick() {
+        const token = gapi.client.getToken();
+        if (token !== null) {
+          google.accounts.oauth2.revoke(token.access_token);
+          gapi.client.setToken("");
+          document.getElementById("content").innerHTML = "";
+          document.getElementById("authorize_button").innerText = "Authorize";
+          document.getElementById("signout_button").style.visibility = "hidden";
+          document.getElementById("download_button").style.visibility =
+            "hidden";
+        }
+      }
+
+      async function listFiles() {
+        let response;
+        try {
+          response = await gapi.client.drive.files.list({
+            pageSize: 10,
+            fields: "files(id, name, createdTime, owners)", // Include 'createdTime' and 'owners' fields
+            q: "'0ANbyjco9413kUk9PVA' in parents",
+            supportsAllDrives: true,
+            includeItemsFromAllDrives: true,
+          });
+        } catch (err) {
+          document.getElementById("content").innerText = err.message;
+          return;
+        }
+
+        const files = response.result.files;
+        if (!files || files.length === 0) {
+          document.getElementById("content").innerText = "No files found.";
+          return;
+        }
+
+        // Create a container element to hold the file information
+        const container = document.createElement("div");
+
+        // Loop through the files and create HTML elements for each
+        files.forEach((file) => {
+          // Create a <p> element to display the name
+          const nameElement = document.createElement("p");
+          nameElement.innerHTML = `<p>${file.name}</p><a>https://drive.google.com/drive/u/0/folders/${file.id}</a>`;
+
+          // Append the <p> element to the container
+          container.appendChild(nameElement);
+        });
+
+        // Clear the previous content and append the container to the <div> element
+        const contentElement = document.getElementById("content");
+        contentElement.innerHTML = "";
+        contentElement.appendChild(container);
+      }
+
+      function downloadAsHTML() {
+        const contentHTML = document.getElementById("content").innerHTML;
+
+        // Create a Blob from the HTML content
+        const blob = new Blob([contentHTML], { type: "text/html" });
+
+        // Create a URL for the Blob
+        const url = URL.createObjectURL(blob);
+
+        // Create an <a> element to trigger the download
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "file_list.html";
+
+        // Trigger the download
+        a.click();
+
+        // Clean up
+        URL.revokeObjectURL(url);
+      }
+
+      // Function to save the HTML content as a file next to this HTML file
+      function saveAsHTML(content) {
+        const blob = new Blob([content], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "file_list.html";
+        a.style.display = "none";
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    </script>
+    <script
+      async
+      defer
+      src="https://apis.google.com/js/api.js"
+      onload="gapiLoaded()"
+    ></script>
+    <script
+      async
+      defer
+      src="https://accounts.google.com/gsi/client"
+      onload="gisLoaded()"
+    ></script>
+  </body>
+</html>

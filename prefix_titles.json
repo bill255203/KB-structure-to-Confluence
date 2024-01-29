@@ -1,0 +1,13 @@
+{
+    "bill1": true,
+    "KB_apiproxy": true,
+    "apiproxy_proxies": true,
+    "proxies_proxies_files": true,
+    "apiproxy_targets": true,
+    "targets_proxies": true,
+    "targets_targets_files": true,
+    "apiproxy_apiproxy_files": true,
+    "KB_proxie": true,
+    "proxie_proxie_files": true,
+    "KB_files": true
+}

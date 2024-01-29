@@ -1,0 +1,9 @@
+functions-framework==3.*
+httplib2
+beautifulsoup4
+google-api-python-client==1.7.4
+oauth2client
+requests
+google-cloud-storage
+numpy
+pandas
